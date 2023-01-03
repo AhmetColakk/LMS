@@ -3,6 +3,10 @@ const Student = require('./../model/studentModel');
 const Teacher = require('./../model/teacherModel');
 
 const onSocket = async socket => {
+  // setInterval(() => {
+  //   socket.emit('me', { ms: 'again' });
+  // }, 2000);
+
   try {
     const announcementStream = Announcement.watch();
     const studentStream = Student.watch();
