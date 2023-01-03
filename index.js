@@ -34,7 +34,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-app.use(express.static('dist'));
+app.use(express.static('public'));
 
 // app.use(requireAuth);
 app.use('/studentAPI', studentRouter);
@@ -43,7 +43,7 @@ app.use('/studentAuth', studentAuhtRouter);
 app.use('/teacherAPI', teacherRouter);
 
 app.get('*', (req, res) =>
-  res.sendFile(path.resolve(__dirname, 'dist', 'index.html')),
+  res.sendFile(path.resolve(__dirname, 'public', 'index.html')),
 );
 
 const PORT = process.env.PORT || 5000;
