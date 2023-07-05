@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const Student = require('../model/studentModel');
+const User = require('../model/usersModel');
 
 const createToken = _id => {
   return jwt.sign({ _id }, process.env.APP_SCREET, {
@@ -11,15 +11,15 @@ const loginStudent = async (req, res) => {
   try {
     const { email, password } = req.body;
     const { authorization } = req.headers;
-    console.log(authorization);
-    const user = await Student.login(email, password);
-    console.log(user._id);
+    // console.log(authorization);
+    const user = await User.login(email, password);
+    // console.log('user ID', user._id);
     const token = createToken(user._id);
     res.cookie('jwt', token, { httpOnly: true, maxAge: 40000000000 * 100 });
     res.status(200).json({
       student: {
         name: user.name,
-        uid: user._id,
+        _id: user._id,
         email: user.email,
         createdAt: user.createdAt,
         token,
@@ -35,13 +35,13 @@ const verfiy = async (req, res) => {
     const { token: authToken } = req.body;
     // console.log(req.body);
     const { authorization } = req.headers;
-    console.log(authorization);
+    // console.log(authorization);
     const verify = jwt.verify(authToken, process.env.APP_SCREET);
     // console.log(verify);
     const { _id } = verify;
 
-    const user = await Student.findOne({ _id });
-    console.log(user);
+    const user = await User.findOne({ _id });
+    // console.log(user);
     const token = createToken(user._id);
     res.cookie('cookieName', 'randomNumber', {
       maxAge: 900000,
@@ -50,7 +50,7 @@ const verfiy = async (req, res) => {
 
     // res.cookie('jwt', token, { httpOnly: true, maxAge: 40000000000 * 100 });
     res.status(200).json({
-      student: {
+      user: {
         name: user.name,
         uid: user._id,
         email: user.email,
@@ -79,7 +79,7 @@ const signupStudent = async (req, res) => {
         .json({ error: 'Please fill in all field', emptyField });
     }
 
-    const student = await Student.create({
+    const student = await User.create({
       name,
       email,
       password,

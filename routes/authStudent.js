@@ -6,8 +6,8 @@ const {
   verfiy,
 } = require('./../controller/studentAuthController');
 
-router.post('/login', loginStudent);
-router.post('/signup', signupStudent);
-router.post('/verify', verfiy);
+router.post('/student/login', loginStudent);
+router.post('/student/signup', signupStudent);
+router.post('/student/verify', verfiy);
 
 module.exports = router;

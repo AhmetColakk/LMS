@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-const bcrypt = require('bcrypt');
 const { isEmail, isStrongPassword } = require('validator');
-const TeacherSchema = new Schema(
+const bcrypt = require('bcrypt');
+
+const UserSchema = new Schema(
   {
     email: {
       type: String,
@@ -22,34 +23,46 @@ const TeacherSchema = new Schema(
     name: {
       type: String,
       required: [true, 'Please fill the Name field'],
-      minlength: [3, 'Name field must be at least 3 char'],
+      minlength: [3, 'Please enter at least 3 characters'],
+      maxlength: [30, 'Please use less word'],
+    },
+    surname: {
+      type: String,
+      required: [true, 'Please fill the Name field'],
+      minlength: [3, 'Please enter at least 3 characters'],
+      maxlength: [30, 'Please use less word'],
+    },
+    role: {
+      type: String,
+      enum: ['student', 'teacher'],
+      required: true,
     },
   },
   { timestamps: true },
 );
-TeacherSchema.pre('save', async function (next) {
-  const salt = await bcrypt.genSalt();
+
+UserSchema.pre('save', async function (next) {
+  const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 
   next();
 });
 
-TeacherSchema.statics.login = async function (email, password) {
+UserSchema.statics.login = async function (email, password) {
   if (!email && !password) {
     throw Error('All field must be filled');
   }
 
-  const teacher = await this.findOne({ email });
-  if (!teacher) {
+  const user = await this.findOne({ email });
+  if (!user) {
     throw Error('Incorrect email');
   }
-  console.log(teacher);
-  const match = await bcrypt.compare(password, teacher.password);
+  const match = await bcrypt.compare(password, user.password);
   if (!match) {
     throw Error('Incorrect Password');
   }
-  return teacher;
+  return user;
 };
 
-const Teacher = mongoose.model('Teacher', TeacherSchema);
-module.exports = Teacher;
+const User = mongoose.model('User', UserSchema);
+module.exports = User;

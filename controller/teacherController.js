@@ -1,6 +1,13 @@
-const Teacher = require('./../model/teacherModel');
+const User = require('./../model/usersModel');
 const { isValidObjectId } = require('mongoose');
 const { isStrongPassword } = require('validator');
+const jwt = require('jsonwebtoken');
+
+const createToken = _id => {
+  return jwt.sign({ _id }, process.env.APP_SCREET, {
+    expiresIn: '3d',
+  });
+};
 
 const getTeacher = async (req, res) => {
   try {
@@ -8,10 +15,17 @@ const getTeacher = async (req, res) => {
     if (!isValidObjectId(id))
       return res.status(400).json({ err: 'The id is not valid' });
 
-    const teacher = await Teacher.findById(id);
-    if (!teacher) return res.status(400).json({ err: 'Student not found' });
+    const teacher = await User.findById(id);
+    if (!teacher) return res.status(400).json({ err: 'Teacher not found' });
 
-    return res.status(200).json({ teacher });
+    return res.status(200).json({
+      teacher: {
+        name: teacher.name,
+        uid: teacher._id,
+        email: teacher.email,
+        createdAt: teacher.createdAt,
+      },
+    });
   } catch (err) {
     console.error(err);
   }
@@ -32,7 +46,7 @@ const createTeacher = async (req, res) => {
         .json({ error: 'Please fill in all field', emptyField });
     }
 
-    const teacher = await Teacher.create({
+    const teacher = await User.create({
       name,
       email,
       password,
@@ -71,18 +85,82 @@ const updateTeacher = async (req, res) => {
     password && Object.assign(newValues, { password });
 
     console.log(newValues);
-    const teacher = await Teacher.findOneAndUpdate(
-      { _id: id },
-      { ...newValues },
-    );
+    const teacher = await User.findOneAndUpdate({ _id: id }, { ...newValues });
 
     if (!teacher) {
       return res.status(400).json({ err: 'Teacher not found' });
     }
-    const updatedTeacher = await Teacher.findById({ _id: id });
+    const updatedTeacher = await User.findById({ _id: id });
     return res.status(200).json({ updatedTeacher });
   } catch (err) {
     console.error(err);
+  }
+};
+
+const loginTeacher = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const emptyField = [];
+    !email && emptyField.push('email');
+    !password && emptyField.push('password');
+
+    if (emptyField.length) {
+      return res
+        .status(404)
+        .json({ error: `Please fill all fields.`, emptyField });
+    }
+
+    const user = await User.login(email, password);
+
+    // console.log(user._id);
+    // console.log(user);
+    if (!user) {
+      return res.status(404).json({ error: 'Email or password is incorrect!' });
+    }
+    const token = createToken(user._id);
+    res.cookie('jwt', token, { httpOnly: true, maxAge: 40000000000 * 100 });
+    req.authorization = token;
+    res.status(200).json({
+      user: {
+        name: user.name,
+        surname: user.surname,
+        _id: user._id,
+        email: user.email,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        role: user.role,
+        token,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(400).json({ error: `${err.message}` });
+  }
+};
+
+const verfiy = async (req, res) => {
+  try {
+    // const { token: authToken } = req.body;
+    // console.log(req.body);
+    const { authorization } = req.headers;
+    if (!authorization)
+      res.status(400).json({ error: 'Authorization header required' });
+    const token = authorization.split(' ')[1];
+    if (!token) res.status(400).json({ error: 'Invalid token' });
+
+    const verify = await jwt.verify(token, process.env.APP_SCREET);
+    // console.log(verify);
+    const { _id } = verify;
+
+    const user = await User.findOne({ _id }).select(
+      '_id name email created_at updated_at role',
+    );
+
+    // res.cookie('jwt', token, { httpOnly: true, maxAge: 40000000000 * 100 });
+    res.status(200).json({ user, token });
+  } catch (err) {
+    // console.error(err);
+    return res.status(400).json({ error: `hey ${err.message}` });
   }
 };
 
@@ -90,4 +168,6 @@ module.exports = {
   getTeacher,
   createTeacher,
   updateTeacher,
+  loginTeacher,
+  verfiy,
 };

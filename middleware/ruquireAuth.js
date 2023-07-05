@@ -1,21 +1,31 @@
 const jwt = require('jsonwebtoken');
-const Student = require('../model/studentModel');
+const User = require('../model/usersModel');
 
 const requireAuth = async (req, res, next) => {
   try {
-    const { authorization } = req.headers;
-    console.log('header authorizaton', authorization);
-    if (!authorization) {
-      return res.status(401).json({ error: 'Authorization token required' });
+    const authorizationHeader = req.headers.authorization;
+    // console.log('authorizationHeader:', authorizationHeader);
+    if (!authorizationHeader || !/^Bearer /.test(authorizationHeader)) {
+      return res
+        .status(401)
+        .json({ error: 'Authorization header is required' });
     }
 
-    const token = authorization.split(' ')[1];
+    const token = authorizationHeader.split(' ')[1];
     const { _id } = jwt.verify(token, process.env.APP_SCREET);
-    req.user = await Student.findOne({ _id }).select('_id');
+    let user = await User.findOne({ _id });
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid user' });
+    }
+
+    req.user = user;
+    req.token = token;
+
     next();
-  } catch (err) {
-    console.error(err);
-    return res.status(401).json({ error: err });
+  } catch (error) {
+    console.error(error);
+    return res.status(401).json({ error: 'Invalid token' });
   }
 };
 

@@ -1,4 +1,3 @@
-const { projects, clients } = require('./sampleData');
 const {
   GraphQLDate,
   GraphQLEmailAddress,
@@ -9,120 +8,68 @@ const {
 const {
   GraphQLObjectType,
   GraphQLID,
-  GraphQLString,
   GraphQLSchema,
   GraphQLList,
   GraphQLInt,
   GraphQLEnumType,
 } = require('graphql');
-const Student = require('../model/studentModel');
-const Teacher = require('../model/teacherModel');
+
+// ? Models
+
 const Announcement = require('../model/announcementModel');
+const Content = require('../model/contentModel');
+const User = require('../model/usersModel');
 
-const StudentType = new GraphQLObjectType({
-  name: 'Student',
-  fields: () => ({
-    id: { type: GraphQLID },
-    name: { type: GraphQLNonEmptyString },
-    email: { type: GraphQLEmailAddress },
-    password: { type: GraphQLNonEmptyString },
-    createdAt: { type: GraphQLDate },
-    updatedAt: { type: GraphQLDate },
-  }),
-});
+// ? Types
 
-const TeacherType = new GraphQLObjectType({
-  name: 'Teacher',
-  fields: () => ({
-    id: { type: GraphQLID },
-    name: { type: GraphQLNonEmptyString },
-    email: { type: GraphQLEmailAddress },
-    password: { type: GraphQLNonEmptyString },
-    createdAt: { type: GraphQLDate },
-    updatedAt: { type: GraphQLDate },
-  }),
-});
-const AnnouncementType = new GraphQLObjectType({
-  name: 'Announcement',
-  fields: () => ({
-    id: { type: GraphQLID },
-    title: { type: GraphQLNonEmptyString },
-    text: { type: GraphQLNonEmptyString },
-    createdAt: { type: GraphQLDate },
-    updatedAt: { type: GraphQLDateTime },
-  }),
-});
+const AnnouncementType = require('./types/announcementTypes');
+const UserType = require('./types/userType');
 
-const ContentCommentType = new GraphQLObjectType({
-  name: 'ContentComment',
-  fields: () => ({
-    id: { type: GraphQLID },
-    owner: {
-      type: new GraphQLEnumType({
-        name: 'Owner',
-        values: {
-          student: {
-            type: StudentType,
-          },
-          teacher: {
-            type: TeacherType,
-          },
-        },
-      }),
-    },
-    comment: { type: GraphQLNonEmptyString },
-    createdAt: { type: GraphQLDate },
-    updatedAt: { type: GraphQLDate },
-  }),
-});
+// ? Mutations
 
-const ContentType = new GraphQLObjectType({
-  name: 'Announcement',
-  fields: () => ({
-    id: { type: GraphQLID },
-    author: {
-      type: new GraphQLEnumType({
-        name: 'Author',
-        values: {
-          student: {
-            type: StudentType,
-          },
-          teacher: {
-            type: TeacherType,
-          },
-        },
-      }),
-    },
-    title: { type: GraphQLNonEmptyString },
-    text: { type: GraphQLNonEmptyString },
-    createdAt: { type: GraphQLDate },
-    updatedAt: { type: GraphQLDateTime },
-    likes: { type: GraphQLInt },
-    comment: { type: ContentCommentType },
-  }),
-});
+const announcementMutations = require('./mutations/announcementMutations');
+const userMutations = require('./mutations/userMutations');
+
+const MessagesType = require('./types/messagesTypes');
+const Messages = require('../model/Messages');
+const messagesMutations = require('./mutations/messagesMutations');
+const ContentType = require('./types/contentType');
+const contentMutations = require('./mutations/contentMutations');
+
+//
+//
+//
 
 const RootQuery = new GraphQLObjectType({
   name: 'RootQueryType',
   fields: {
-    students: {
-      type: new GraphQLList(StudentType),
-      resolve(parent, args) {
-        return Student.find();
+    content: {
+      type: ContentType,
+      args: { id: { type: GraphQLID } },
+      resolve: (_, args) => Content.findById(args.id),
+    },
+    contents: {
+      type: GraphQLList(ContentType),
+      resolve: () => Content.find(),
+    },
+    users: {
+      type: new GraphQLList(UserType),
+      args: {
+        id: { type: GraphQLID },
+        name: { type: GraphQLNonEmptyString },
+        email: { type: GraphQLNonEmptyString },
+        role: { type: GraphQLNonEmptyString },
+      },
+      async resolve(parent, args, context) {
+        console.log();
+        return User.find({ ...args });
       },
     },
-    student: {
-      type: StudentType,
+    user: {
+      type: UserType,
       args: { id: { type: GraphQLID } },
       async resolve(parent, args) {
-        return await Student.findById(args.id);
-      },
-    },
-    teacher: {
-      type: TeacherType,
-      args: { id: { type: GraphQLID } },
-      async resolve(parent, args) {
-        return await Teacher.findById(args.id);
+        return await User.findById(args.id);
       },
     },
     announcement: {
@@ -134,9 +81,44 @@ const RootQuery = new GraphQLObjectType({
     },
     announcements: {
       type: new GraphQLList(AnnouncementType),
-
+      args: {
+        page: { type: GraphQLInt },
+        limit: { type: GraphQLInt },
+      },
       async resolve(parent, args) {
-        return Announcement.find();
+        const page = args.page || 1;
+        const limit = args.limit || 10;
+        const startIndex = (page - 1) * limit;
+        const endIndex = page * limit;
+        return await Announcement.find()
+          .sort({ createdAt: -1 })
+          .skip(startIndex)
+          .limit(endIndex);
+      },
+    },
+    messages: {
+      type: new GraphQLList(MessagesType),
+      args: {
+        id: { type: GraphQLID },
+      },
+      async resolve(parent, args, context) {
+        // if (!args.id) return new Error('User Id required');
+        return Messages.find({ users: { $in: [args.id] } });
+      },
+    },
+    message: {
+      type: new GraphQLList(MessagesType),
+      args: {
+        id: { type: GraphQLID },
+      },
+      async resolve(parent, args, context) {
+        if (!args.id) return new Error('User Id required');
+
+        const message = Messages.findById(args.messageId);
+        if (!message) {
+          throw new Error('Message not found');
+        }
+        return message;
       },
     },
   },
@@ -146,90 +128,17 @@ const RootQuery = new GraphQLObjectType({
 const mutation = new GraphQLObjectType({
   name: 'Mutation',
   fields: {
-    // ? Student Mutations
-
-    addStudent: {
-      type: StudentType,
-      args: {
-        name: { type: GraphQLNonEmptyString },
-        email: { type: GraphQLEmailAddress },
-        password: { type: GraphQLNonEmptyString },
-      },
-      async resolve(parent, args) {
-        return await Student.create({ ...args });
-      },
-    },
-    deleteStudent: {
-      type: StudentType,
-      args: {
-        id: { type: GraphQLID },
-        name: { type: GraphQLNonEmptyString },
-        email: { type: GraphQLEmailAddress },
-      },
-      async resolve(parent, args) {
-        return await Student.deleteOne({ _id: args.id });
-      },
-    },
-    updateStudent: {
-      type: StudentType,
-      args: {
-        id: { type: GraphQLID },
-        name: { type: GraphQLNonEmptyString },
-        email: { type: GraphQLEmailAddress },
-        password: { type: GraphQLNonEmptyString },
-      },
-      async resolve(parent, args) {
-        await Student.updateOne({ _id: args.id }, { ...args });
-        return await Student.findById({ _id: args.id });
-      },
-    },
-
-    // ? Teacher Mutations
-
-    addTeacher: {
-      type: TeacherType,
-      args: {
-        name: { type: GraphQLNonEmptyString },
-        email: { type: GraphQLEmailAddress },
-        password: { type: GraphQLNonEmptyString },
-      },
-      async resolve(parent, args) {
-        return await Teacher.create({ ...args });
-      },
-    },
+    // ? User Mutations
+    ...userMutations,
 
     // ? Announcement Mutations
+    ...announcementMutations,
 
-    addAnnouncement: {
-      type: AnnouncementType,
-      args: {
-        title: { type: GraphQLNonEmptyString },
-        text: { type: GraphQLNonEmptyString },
-      },
-      async resolve(parent, args) {
-        return await Announcement.create({ ...args });
-      },
-    },
-    deleteAnnouncement: {
-      type: AnnouncementType,
-      args: {
-        id: { type: GraphQLID },
-      },
-      async resolve(parent, args) {
-        return await Announcement.deleteOne({ _id: args.id });
-      },
-    },
-    updateAnnouncement: {
-      type: AnnouncementType,
-      args: {
-        id: { type: GraphQLID },
-        title: { type: GraphQLNonEmptyString },
-        text: { type: GraphQLNonEmptyString },
-      },
-      async resolve(parent, args) {
-        return await Announcement.updateOne({ _id: args.id }, { ...args });
-      },
-    },
+    // ? Messages Mutation
+    ...messagesMutations,
+
+    // ? Content Mutation
+    ...contentMutations,
   },
 });
 

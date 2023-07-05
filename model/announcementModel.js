@@ -14,14 +14,14 @@ const AnnouncementSchema = new Schema(
       minlength: [6, 'Please enter at least 6 characters'],
       maxlength: [2500, 'Please enter less than 2500 characters'],
     },
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
   },
   { timestamps: true },
 );
-
-// AnnouncementSchema.pre('save', async function (next) {
-//   await onSocket(this);
-//   next();
-// });
 
 const Announcement = mongoose.model('Announcement', AnnouncementSchema);
 module.exports = Announcement;
